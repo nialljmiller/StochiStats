@@ -331,6 +331,28 @@ def mann_whitney_u_test(data1, data2):
     p_value = 2 * (1 - stats.norm.cdf(np.abs(z)))
     return min_u, max_u, p_value
 
+def anderson_darling_test(data1, data2):
+    combined_data = np.sort(np.concatenate([data1, data2]))
+    ecdf = np.arange(1, len(combined_data) + 1) / len(combined_data)
+    A2 = -len(data1) - np.sum((2 * np.arange(1, len(data1) + 1) - 1) * (np.log(ecdf[:len(data1)]) + np.log(1 - ecdf[-len(data1):][::-1])))
+    critical_values = np.array([0.576, 0.656, 0.787, 0.918, 1.092])  # Critical values for significance levels 15%, 10%, 5%, 2.5%, 1%
+    p_value = np.interp(A2, [0.2, 0.6, 1.0, 1.5, 2.0], critical_values)
+    return A2, p_value
+
+def cohens_d(data1, data2):
+    mean1, mean2 = np.mean(data1), np.mean(data2)
+    std1, std2 = np.std(data1, ddof=1), np.std(data2, ddof=1)
+    pooled_std = np.sqrt(((len(data1) - 1) * std1**2 + (len(data2) - 1) * std2**2) / (len(data1) + len(data2) - 2))
+    cohens_d = np.abs(mean1 - mean2) / pooled_std
+    return cohens_d
+
+
+def emp_cramer_von_mises(data1, data2):
+    combined_data = np.sort(np.concatenate([data1, data2]))
+    ecdf1 = np.searchsorted(data1, combined_data, side='right') / len(data1)
+    ecdf2 = np.searchsorted(data2, combined_data, side='right') / len(data2)
+    ecvm_statistic = np.sum((ecdf1 - ecdf2)**2)
+    return ecvm_statistic
 
 
 

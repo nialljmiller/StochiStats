@@ -4,7 +4,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from scipy.signal import savgol_filter
 
 
-def spline_fit( mag, magerr, time, do_it_anyway = 0):
+def spline_fit(mag, magerr, time, do_it_anyway = 0):
     def sl(x, A, B): # this is your 'straight line' y=f(x)
         return A*x + B
             
@@ -47,26 +47,25 @@ def spline_fit( mag, magerr, time, do_it_anyway = 0):
     if abs(max(IQRs)-min(IQRs)) > 0.1 * RIQR:
         trans_flag = 1 
 
-    try:
-        popt, pcov = curve_fit(sl, rx, rq50) # your data x, y to fit
-        grad = popt[0]
-        intercept = popt[1]
-        #generate fit
+    popt, pcov = curve_fit(sl, rx, rq50) # your data x, y to fit
+    grad = popt[0]
+    intercept = popt[1]
+    #generate fit
 
-        y_fit = sl(x, popt[0], popt[1])
-        #compare
-        y_diff = y - y_fit
-        #residual sum of squares
-        ss_res = np.sum((y_diff) ** 2)
-        #total sum of squares
-        ss_tot = np.sum((y - np.mean(y)) ** 2)
-        # r-squared
-        r2 = 1 - (ss_res / ss_tot)
-    
+    y_fit = sl(x, popt[0], popt[1])
+    #compare
+    y_diff = y - y_fit
+    #residual sum of squares
+    ss_res = np.sum((y_diff) ** 2)
+    #total sum of squares
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    # r-squared
+    r2 = 1 - (ss_res / ss_tot)
+        
  
 
 
-def sine_fit( mag, time, period, name):
+def sine_fit(mag, time, period, name):
         def sinus(x, A, B, C): # this is your 'straight line' y=f(x)
             return (A * np.sin((2.*np.pi*x)+C))+B
         y = np.array(mag)        # to fix order when called, (better to always to mag, time) CONSISTENCY!!!!!!!!!)
@@ -88,7 +87,7 @@ def sine_fit( mag, time, period, name):
 
 
 #normalise list 'x' 
-def normalise( x):
+def normalise(x):
     x_list = []
     x_list = (x-min(x))/(max(x)-min(x))
     return x_list
@@ -212,7 +211,7 @@ def numbins(x):
     return int((max(x)-min(x))/h)
 
 
-def err_var( mag, magerr):
+def err_var(mag, magerr):
     amp = abs(max(mag) - min(mag))
     err = np.median(magerr)
     return amp/err
@@ -259,21 +258,21 @@ def running_phase_statistics(mag, magerr, time, period, nbins = None):
 
 
 
-def weighted_mean( var, wts):
+def weighted_mean(var, wts):
     """Calculates the weighted mean"""
     return np.average(var, weights=wts)
 
 
-def weighted_variance( var, wts):
+def weighted_variance(var, wts):
     """Calculates the weighted variance"""
     return np.average((var - weighted_mean(var, wts))**2, weights=wts)
 
 
-def weighted_skew( var, wts):
+def weighted_skew(var, wts):
     """Calculates the weighted skewness"""
     return (np.average((var - weighted_mean(var, wts))**3, weights=wts) / weighted_variance(var, wts)**(1.5))
 
-def weighted_kurtosis( var, wts):
+def weighted_kurtosis(var, wts):
     """Calculates the weighted skewness"""
     return (np.average((var - weighted_mean(var, wts))**4, weights=wts) / weighted_variance(var, wts)**(2))
 
@@ -317,6 +316,24 @@ def AndersonDarling(mag):
     return 1 / (1.0 + np.exp(-10 * (A2 - 0.3)))
 
 
+def mann_whitney_u_test(data1, data2):
+    combined_data = np.concatenate((data1, data2))
+    ranked_data = np.argsort(combined_data)
+    u1 = np.sum(ranked_data[:len(data1)])
+    u2 = np.sum(ranked_data[len(data1):])
+    min_u = min(u1, u2)
+    max_u = max(u1, u2)
+    n1 = len(data1)
+    n2 = len(data2)
+    expected_u = (n1 * n2 / 2)
+    std_error = np.sqrt((n1 * n2 * (n1 + n2 + 1)) / 12)
+    z = (min_u - expected_u) / std_error
+    p_value = 2 * (1 - stats.norm.cdf(np.abs(z)))
+    return min_u, max_u, p_value
+
+
+
+
 def IQR(y):
     y = list(y)
     q50 = np.median(y)
@@ -341,7 +358,7 @@ def ptop_var(y, yerr):
     v = (np.max(m_std_diffs) - np.min(m_std_diffs)) / (np.max(m_std_diffs) + np.min(m_std_diffs)) 
     return v
 
-def lagauto( y):
+def lagauto(y):
     #Lag-1 autocorrelation
     numerator = []
     for i, yy in enumerate(y[:-1]):
@@ -350,14 +367,14 @@ def lagauto( y):
     return np.sum(numerator) / denominator
 
 
-def cody_Q( mag, time, period, name):
+def cody_Q(mag, time, period, name):
     #calculates AM cody's Q value https://arxiv.org/pdf/1401.6582.pdf (page 25)
     mag_resid, time = sine_fit(mag, time, period, name)
     Q_value = (np.mean(mag_resid**2) - np.std(mag)**2)/(np.mean(mag**2) - np.std(mag)**2)
     return Q_value
 
 
-def cody_M( mag, time):
+def cody_M(mag, time):
     #calculatews AM cody's M value https://arxiv.org/pdf/1401.6582.pdf (page 26)
     mag = np.array(mag)
     q90, q10 = np.percentile(mag, [90, 10])
@@ -402,6 +419,13 @@ def Stetson_K(mag, magerr):
     sigmap = (np.sqrt(N * 1.0 / (N - 1)) * (mag - mean_mag) / magerr)
     K = (1 / np.sqrt(N * 1.0) * np.sum(np.abs(sigmap)) / np.sqrt(np.sum(sigmap ** 2)))
     return K
+
+
+
+
+
+
+
 
 def Eta_e(mag, time):
     w = 1.0 / np.power(np.subtract(time[1:], time[:-1]), 2)

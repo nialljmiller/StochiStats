@@ -2,7 +2,9 @@ import numpy as np
 import random
 from sklearn.neighbors import KNeighborsRegressor
 from scipy.signal import savgol_filter
-
+import warnings
+# Suppress RuntimeWarning
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def spline_fit(mag, magerr, time, do_it_anyway = 0):
     def sl(x, A, B): # this is your 'straight line' y=f(x)

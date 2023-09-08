@@ -4,7 +4,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from scipy.signal import savgol_filter
 import warnings
 # Suppress RuntimeWarning
-warnings.filterwarnings("ignore", category=RuntimeWarning)
+#warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def spline_fit(mag, magerr, time, do_it_anyway = 0):
     def sl(x, A, B): # this is your 'straight line' y=f(x)
@@ -321,17 +321,26 @@ def AndersonDarling(mag):
 def mann_whitney_u_test(data1, data2):
     combined_data = np.concatenate((data1, data2))
     ranked_data = np.argsort(combined_data)
-    u1 = np.sum(ranked_data[:len(data1)])
-    u2 = np.sum(ranked_data[len(data1):])
+    rank_sum1 = np.sum(ranked_data[:len(data1)])
+    rank_sum2 = np.sum(ranked_data[len(data1):])
+    u1 = rank_sum1 - (len(data1) * (len(data1) + 1)) / 2
+    u2 = rank_sum2 - (len(data2) * (len(data2) + 1)) / 2
     min_u = min(u1, u2)
     max_u = max(u1, u2)
     n1 = len(data1)
     n2 = len(data2)
     expected_u = (n1 * n2 / 2)
     std_error = np.sqrt((n1 * n2 * (n1 + n2 + 1)) / 12)
-    z = (min_u - expected_u) / std_error
+    got_u = (u1 * u2/ 2)
+    z = (got_u - expected_u) / std_error
     p_value = 2 * (1 - stats.norm.cdf(np.abs(z)))
     return min_u, max_u, p_value
+
+
+
+
+
+
 
 def anderson_darling_test(data1, data2):
     combined_data = np.sort(np.concatenate([data1, data2]))

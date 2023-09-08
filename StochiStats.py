@@ -3,6 +3,28 @@ import random
 from sklearn.neighbors import KNeighborsRegressor
 from scipy.signal import savgol_filter
 import warnings
+
+def erf(x):
+    # Constants for the approximation
+    a1 =  0.254829592
+    a2 = -0.284496736
+    a3 =  1.421413741
+    a4 = -1.453152027
+    a5 =  1.061405429
+    p  =  0.3275911
+
+    # Sign of x
+    sign = np.sign(x)
+    x = np.abs(x)
+
+    # A constant
+    t = 1.0 / (1.0 + p * x)
+
+    # Approximate erf using the polynomial approximation
+    erf_value = sign * (1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*np.exp(-x*x))
+
+    return erf_value
+
 # Suppress RuntimeWarning
 #warnings.filterwarnings("ignore", category=RuntimeWarning)
 
@@ -332,7 +354,7 @@ def mann_whitney_u_test(data1, data2):
     expected_u = (n1 * n2 / 2)
     std_error = np.sqrt((n1 * n2 * (n1 + n2 + 1)) / 12)
     z = (min_u - expected_u) / std_error
-    p_value = 2 * (1 - np.abs(0.5 - 0.5 * np.erf(-z / np.sqrt(2))))
+    p_value = 2 * (1 - np.abs(0.5 - 0.5 * erf(-z / np.sqrt(2))))
     return min_u, max_u, p_value
 
 

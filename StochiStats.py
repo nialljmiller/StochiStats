@@ -331,9 +331,8 @@ def mann_whitney_u_test(data1, data2):
     n2 = len(data2)
     expected_u = (n1 * n2 / 2)
     std_error = np.sqrt((n1 * n2 * (n1 + n2 + 1)) / 12)
-    got_u = (u1 * u2/ 2)
-    z = (got_u - expected_u) / std_error
-    p_value = 2 * (1 - stats.norm.cdf(np.abs(z)))
+    z = (min_u - expected_u) / std_error
+    p_value = 2 * (1 - np.abs(0.5 - 0.5 * np.erf(-z / np.sqrt(2))))
     return min_u, max_u, p_value
 
 

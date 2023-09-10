@@ -4,8 +4,16 @@ from sklearn.neighbors import KNeighborsRegressor
 from scipy.signal import savgol_filter
 import warnings
 
+from CE import *
+from GP import *
+from LS import *
+from PyDM import *
+from Period import *
+from synthetic_lc_generator import *
+
 def erf(x):
     # Constants for the approximation
+    #rational function approximation.
     a1 =  0.254829592
     a2 = -0.284496736
     a3 =  1.421413741

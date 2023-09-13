@@ -1,4 +1,3 @@
-import np.random
 import numpy as np
 
 def normalize(x):
@@ -82,7 +81,7 @@ def source_lc_gen(mag, magerr, time, N, median_mag, time_range):
 
 
 
-def synthesize(mag = None, magerr = None, time = None, N = None, period = None, amplitude = None, median_mag = None, other_pert = 1, scatter_flag = 1, contamination_flag = 1, err_rescale = 1, cat_type = None, time_range = [0.5,3000]):
+def synthesize(mag = None, magerr = None, time = None, N = None, period = None, amplitude = None, median_mag = None, other_pert = 1, scatter_flag = 0, contamination_flag = 0, err_rescale = 1, cat_type = None, time_range = [0.5,3000]):
 
     def lc_model(t, P, Amplitude, cat_type):
         """
@@ -242,9 +241,9 @@ def synthesize(mag = None, magerr = None, time = None, N = None, period = None, 
             print(mag_err_scaler)
 
     if contamination_flag == 1:
-        contaminations = int(random.uniform(1, 4))
+        contaminations = int(np.random.uniform(1, 4))
         for _ in range(contaminations):
-            cont_id = int(random.uniform(0, len(seed_m)))
+            cont_id = int(np.random.uniform(0, len(seed_m)))
             seed_m[cont_id] = float(seed_m[cont_id] + np.random.uniform(-2, 2) * amplitude)
             seed_em[cont_id] = float(seed_em[cont_id] * np.random.uniform(2, 5))
 
@@ -252,7 +251,7 @@ def synthesize(mag = None, magerr = None, time = None, N = None, period = None, 
     sim_mags = sim_mags + seed_m
 
     if other_pert == 1:
-        sim_mags = sim_mags + (np.sin((2*np.pi*seed_t+random.uniform(0,128*np.pi))/period) * amplitude * np.random.uniform(0.0005, 0.01))
+        sim_mags = sim_mags + (np.sin((2*np.pi*seed_t+np.random.uniform(0,128*np.pi))/period) * amplitude * np.random.uniform(0.0005, 0.01))
     else:
         sim_mags = sim_mags
 

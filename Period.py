@@ -56,11 +56,11 @@ except:
 
 
 #import my stuff
-import PDM as PDM
+#import PDM as PDM
 import GP as GP
 import LS as LS
 
-import Synth_LC as Synth_LC
+
 # == == == == == = #
 #Global Vars#
 # == == == == == = #
@@ -101,6 +101,178 @@ def lightcurve_clip(mag = None, magerr = None, time = None,error_clip = False, s
 			mag, magerr, time = self.time_res_reduce(mag, magerr, time, resolution = self.time_res)
 
 	return mag, magerr, time
+
+
+
+
+
+def peak_analysis(x, y, peak_min = 0):
+
+
+
+	def del_list(l, id_to_del):
+		arr = np.array(l)
+		return list(np.delete(arr, id_to_del))
+
+
+
+	def weird_check(x, y):
+		#find and remove all shite in it
+		where_are_NaNs = np.isnan(y)
+		where_are_infs = np.isinf(y)
+		where_are_high = np.where(np.logical_or(y>10000, y<-10000))[0]
+
+		y[where_are_high] = np.median(y)
+		y[where_are_NaNs] = np.median(y)
+		y[where_are_infs] = np.median(y)
+		return x, y
+
+	def remove_observing_sampling(x, y):
+					
+		observing_del_range = []
+		for eperiods in self.exclusion_periods:
+			observing_del_range.extend(list(np.where(np.logical_and(1/x>=eperiods[0], 1/x<=eperiods[1]))[0]))
+
+		y_new = del_list(y, observing_del_range)
+		x_new = del_list(x, observing_del_range)
+		return x_new[4:], y_new[4:]
+
+	def identify_peak(x, y, peak_min = 0):
+
+		if peak_min == 1:
+			#PROPERLY IDENTIFY PEAK
+			peak_id = int(np.argmin(y))	#get min id
+			#print(peak_id)
+			#find adding edge
+			yip = y[peak_id]
+			add_edge = peak_id
+			add_edge_list = list(range(peak_id, len(y)-1))
+			add_edge_list.sort()
+			y_add = [y[i] for i in add_edge_list]
+			#print(y_add)
+			for i, yi in enumerate(y_add):
+				if yi > yip:
+					yip = yi
+					add_edge = add_edge_list[i]
+				else:
+					add_edge = add_edge_list[i]
+					break
+
+			#find subtracting edge
+			yip = y[peak_id]
+			sub_edge = peak_id
+			sub_edge_list = list(range(0, peak_id))
+			sub_edge_list.sort(reverse=True)
+			y_sub = [y[i] for i in sub_edge_list]
+			for i, yi in enumerate(y_sub):
+				if yi > yip:
+					yip = yi
+					sub_edge = sub_edge_list[i]
+				else:
+					sub_edge = sub_edge_list[i]
+					break
+
+		else:	
+			#PROPERLY IDENTIFY PEAK
+			peak_id = int(np.argmax(y))	#get min id
+			#print(peak_id)
+			#find adding edge
+			yip = y[peak_id]
+			add_edge = peak_id
+			add_edge_list = list(range(peak_id, len(y)-1))
+			add_edge_list.sort()
+			y_add = [y[i] for i in add_edge_list]
+			#print(y_add)
+			for i, yi in enumerate(y_add):
+				if yi < yip:
+					yip = yi
+					add_edge = add_edge_list[i]
+
+				else:
+					add_edge = add_edge_list[i]
+					break
+
+			#find subtracting edge
+			yip = y[peak_id]
+			sub_edge = peak_id
+			sub_edge_list = list(range(0, peak_id))
+			sub_edge_list.sort(reverse=True)
+			y_sub = [y[i] for i in sub_edge_list]
+			for i, yi in enumerate(y_sub):
+				if yi < yip:
+					yip = yi
+					sub_edge = sub_edge_list[i]
+
+				else:
+					sub_edge = sub_edge_list[i]
+					break
+
+		#https://arxiv.org/pdf/1512.01611.pdf
+		# We assume the half of the full width is the period uncertainty.
+		
+		peak_width = abs(x[sub_edge] - x[add_edge]) 
+		return peak_id, peak_width
+
+
+
+	def delete_peak(x, y, peak_id):
+
+		ids = np.where(np.logical_and(x>=x[peak_id]*0.9, x<=x[peak_id]*1.1))[0]
+
+		if len(ids) < 2:
+			ids = [peak_id-2,peak_id-1,peak_id,peak_id+1,peak_id+2]
+
+		if len(ids) > 0.4*len(x):
+			ids = np.where(np.logical_and(x>=x[peak_id]*0.99, x<=x[peak_id]*1.11))[0]
+			if len(ids) > 0.45*len(x):
+				ids = [peak_id]
+		y_new = []
+		x_new = []
+
+		del_range = range(min(ids)-5, max(ids)+6, 1)
+		del_range = [item for item in del_range if item >= 0 and item < len(y)]
+		y_new = del_list(y, del_range)
+		x_new = del_list(x, del_range)
+
+		return x_new, y_new
+
+
+	#ensure sorted for easy peak stuff
+	sort = np.argsort(x)
+	x = np.array(x)[sort]	
+	y = np.array(y)[sort]
+
+	#print(x, y)
+	x, y = weird_check(x, y)
+	#print('NOT REMOVING WEIRD')
+	x, y = remove_observing_sampling(x, y)
+	#print(x, y)
+
+	q001, q01, q1, q25, q50, q75, q99, q999, q9999 = np.percentile(y, [0.01, 0.1, 1, 25, 50, 75, 99, 99.9, 99.99])
+
+	peak_id_0, peak_width_0 = identify_peak(x, y, peak_min = peak_min)
+	y_y_0 = y[peak_id_0]
+	x_y_0 = x[peak_id_0]
+	x,y = delete_peak(x, y, peak_id_0)
+
+	peak_id_1, peak_width_1 = identify_peak(x, y, peak_min = peak_min)
+	y_y_1 = y[peak_id_1]
+	x_y_1 = x[peak_id_1]
+	x,y = delete_peak(x, y, peak_id_1)
+
+	peak_id_2, peak_width_2 = identify_peak(x, y, peak_min = peak_min)
+	y_y_2 = y[peak_id_2]
+	x_y_2 = x[peak_id_2]
+	x,y = delete_peak(x, y, peak_id_2)
+
+	#return Y peak value, X peak value (IE, extracted period), Y peak width for first 3 peaks
+	#also return IQR stats
+	return y_y_0, x_y_0, peak_width_0, y_y_1, x_y_1, peak_width_1, y_y_2, x_y_2, peak_width_2, q001, q01, q1, q25, q50, q75, q99, q999, q9999
+
+
+
+
+
 
 
 
@@ -600,195 +772,6 @@ class Period:
 		box = np.ones(box_pts)/box_pts
 		y_smooth = np.convolve(y, box, mode='same')
 		return y_smooth
-
-
-	def peak_analysis(self, x, y, method = None, peak_min = 0):
-
-		def weird_check(x, y):
-			#find and remove all shite in it
-			where_are_NaNs = np.isnan(y)
-			where_are_infs = np.isinf(y)
-			where_are_high = np.where(np.logical_or(y>10000, y<-10000))[0]
-
-			y[where_are_high] = np.median(y)
-			y[where_are_NaNs] = np.median(y)
-			y[where_are_infs] = np.median(y)
-			return x, y
-
-		def remove_observing_sampling(x, y):
-						
-			observing_del_range = []
-			for eperiods in self.exclusion_periods:
-				observing_del_range.extend(list(np.where(np.logical_and(1/x>=eperiods[0], 1/x<=eperiods[1]))[0]))
-
-			y_new = self.del_list(y, observing_del_range)
-			x_new = self.del_list(x, observing_del_range)
-			return x_new[4:], y_new[4:]
-
-		def identify_peak(x, y, peak_min = 0):
-
-			if peak_min == 1:
-				#PROPERLY IDENTIFY PEAK
-				peak_id = int(np.argmin(y))	#get min id
-				#print(peak_id)
-				#find adding edge
-				yip = y[peak_id]
-				add_edge = peak_id
-				add_edge_list = list(range(peak_id, len(y)-1))
-				add_edge_list.sort()
-				y_add = [y[i] for i in add_edge_list]
-				#print(y_add)
-				for i, yi in enumerate(y_add):
-					if yi > yip:
-						yip = yi
-						add_edge = add_edge_list[i]
-					else:
-						add_edge = add_edge_list[i]
-						break
-
-				#find subtracting edge
-				yip = y[peak_id]
-				sub_edge = peak_id
-				sub_edge_list = list(range(0, peak_id))
-				sub_edge_list.sort(reverse=True)
-				y_sub = [y[i] for i in sub_edge_list]
-				for i, yi in enumerate(y_sub):
-					if yi > yip:
-						yip = yi
-						sub_edge = sub_edge_list[i]
-					else:
-						sub_edge = sub_edge_list[i]
-						break
-
-			else:	
-				#PROPERLY IDENTIFY PEAK
-				peak_id = int(np.argmax(y))	#get min id
-				#print(peak_id)
-				#find adding edge
-				yip = y[peak_id]
-				add_edge = peak_id
-				add_edge_list = list(range(peak_id, len(y)-1))
-				add_edge_list.sort()
-				y_add = [y[i] for i in add_edge_list]
-				#print(y_add)
-				for i, yi in enumerate(y_add):
-					if yi < yip:
-						yip = yi
-						add_edge = add_edge_list[i]
-
-					else:
-						add_edge = add_edge_list[i]
-						break
-
-				#find subtracting edge
-				yip = y[peak_id]
-				sub_edge = peak_id
-				sub_edge_list = list(range(0, peak_id))
-				sub_edge_list.sort(reverse=True)
-				y_sub = [y[i] for i in sub_edge_list]
-				for i, yi in enumerate(y_sub):
-					if yi < yip:
-						yip = yi
-						sub_edge = sub_edge_list[i]
-
-					else:
-						sub_edge = sub_edge_list[i]
-						break
-
-			#https://arxiv.org/pdf/1512.01611.pdf
-			# We assume the half of the full width is the period uncertainty.
-			
-			peak_width = abs(x[sub_edge] - x[add_edge]) 
-			return peak_id, peak_width
-
-
-
-		def delete_peak(x, y, peak_id):
-
-			ids = np.where(np.logical_and(x>=x[peak_id]*0.9, x<=x[peak_id]*1.1))[0]
-
-			if len(ids) < 2:
-				ids = [peak_id-2,peak_id-1,peak_id,peak_id+1,peak_id+2]
-
-			if len(ids) > 0.4*len(x):
-				ids = np.where(np.logical_and(x>=x[peak_id]*0.99, x<=x[peak_id]*1.11))[0]
-				if len(ids) > 0.45*len(x):
-					ids = [peak_id]
-			y_new = []
-			x_new = []
-
-			del_range = range(min(ids)-5, max(ids)+6, 1)
-			del_range = [item for item in del_range if item >= 0 and item < len(y)]
-			y_new = self.del_list(y, del_range)
-			x_new = self.del_list(x, del_range)
-
-
-			if self.IO > 2:
-				print('\t~~~~~DELETE PEAK~~~~~~')
-				print("\tDeleted :", len(del_range))
-				print("\tNew list:", len(x_new))
-				print("\tOld list:", len(x))
-				print('\t~~~~~~~~~~~~~~~~~~~~~~~~~~')
-				
-			return x_new, y_new
-
-		if method != None:
-
-			if method == 'LS':
-				peak_min = 0
-				self.ls_period_x = x
-				self.ls_period_y = y
-
-			elif method == 'CE':
-				peak_min = 1
-				self.ce_period_x = x
-				self.ce_period_y = y
-
-			elif method == 'PDM':
-				peak_min = 1
-				self.pdm_period_x = x
-				self.pdm_period_y = y
-
-		try:
-			#ensure sorted for easy peak stuff
-			sort = np.argsort(x)
-			x = np.array(x)[sort]	
-			y = np.array(y)[sort]
-		except:
-			print(y)
-			print('THIS HAS CRASHED')
-			exit()
-
-		#print(x, y)
-		x, y = weird_check(x, y)
-		#print('NOT REMOVING WEIRD')
-		x, y = remove_observing_sampling(x, y)
-		#print(x, y)
-
-		q50 = np.median(y)
-
-		q001, q01, q1, q25, q75, q99, q999, q9999 = self.IQR(y)
-
-		peak_id_0, peak_width_0 = identify_peak(x, y, peak_min = peak_min)
-		y_y_0 = y[peak_id_0]
-		x_y_0 = x[peak_id_0]
-		x,y = delete_peak(x, y, peak_id_0)
-
-		peak_id_1, peak_width_1 = identify_peak(x, y, peak_min = peak_min)
-		y_y_1 = y[peak_id_1]
-		x_y_1 = x[peak_id_1]
-		x,y = delete_peak(x, y, peak_id_1)
-
-		peak_id_2, peak_width_2 = identify_peak(x, y, peak_min = peak_min)
-		y_y_2 = y[peak_id_2]
-		x_y_2 = x[peak_id_2]
-		x,y = delete_peak(x, y, peak_id_2)
-
-		#return Y peak value, X peak value (IE, extracted period), Y peak width for first 3 peaks
-		#also return IQR stats
-		return y_y_0, x_y_0, peak_width_0, y_y_1, x_y_1, peak_width_1, y_y_2, x_y_2, peak_width_2, q001, q01, q1, q25, q50, q75, q99, q999, q9999
-
-
 
 
 

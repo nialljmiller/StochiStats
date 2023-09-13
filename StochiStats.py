@@ -4,11 +4,12 @@ from sklearn.neighbors import KNeighborsRegressor
 from scipy.signal import savgol_filter
 import warnings
 
-from CE import *
-from GP import *
-from LS import *
-from PyDM import *
-from Period import *
+from periodograms.CE import *
+#from periodograms.GP2 import *
+from periodograms.LS2 import *
+from periodograms.PDM import *
+from periodograms.PyDM import *
+#from Period import *
 from synthetic_lc_generator import *
 
 def erf(x):

@@ -5,7 +5,7 @@ from scipy.signal import savgol_filter
 import warnings
 
 from periodograms.CE import *
-#from periodograms.GP2 import *
+from periodograms.GP2 import *
 from periodograms.LS2 import *
 from periodograms.PDM import *
 from periodograms.PyDM import *

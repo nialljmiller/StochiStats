@@ -6,9 +6,13 @@ StochiStats is a Python package designed for time series analysis and other scie
 ## Installation
 To install StochiStats, you can use `pip` and the provided setup file:
 
-```bash
+##For linux cli
+gh repo clone nialljmiller/StochiStats
+cd StochiStats
 pip install -e .
 
+##For windows
+https://linuxmint-installation-guide.readthedocs.io/en/latest/install.html
 
 
 import StochiStats as ss

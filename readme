@@ -1,1 +1,14 @@
+# StochiStats
 
+## Introduction
+StochiStats is a Python package designed for time series analysis and other scientific applications. With a focus on simplicity and efficiency, StochiStats provides a range of functions to streamline your data analysis tasks.
+
+## Installation
+To install StochiStats, you can use `pip` and the provided setup file:
+
+```bash
+pip install -e .
+
+
+
+import StochiStats as ss

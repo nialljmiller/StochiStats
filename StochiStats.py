@@ -3,7 +3,7 @@ import random
 from sklearn.neighbors import KNeighborsRegressor
 from scipy.signal import savgol_filter
 import warnings
-
+from scipy.optimize import curve_fit
 from periodograms.CE import *
 from periodograms.GP2 import *
 from periodograms.LS2 import *
@@ -11,6 +11,11 @@ from periodograms.PDM import *
 from periodograms.PyDM import *
 #from Period import *
 from synthetic_lc_generator import *
+
+
+
+def phaser(time, period):
+    return (time / period) % 1
 
 def erf(x):
     # Constants for the approximation
@@ -36,6 +41,39 @@ def erf(x):
 
 # Suppress RuntimeWarning
 #warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+def fourier_fit(x, y, yerr, num_harmonics = 3, initial_guess = [0.0, 1.0, 0.0]):
+
+    def flexible_waveform(x, *params):
+        result = 0.0
+        offset = params[0]
+        params = params[1:]
+        num_harmonics = len(params) // 3
+        for i in range(num_harmonics):
+            amplitude, frequency, phase = params[i * 3 + 0], params[i * 3 + 1], params[i * 3 + 2]
+            result += amplitude * np.sin(2 * np.pi * frequency * x + phase)
+        result = result + offset
+        return result
+
+    # Fit the flexible waveform to the data
+    params0 = [0] + initial_guess * num_harmonics
+    params, covariance = curve_fit(flexible_waveform, x, y, p0=params0, maxfev = 9999999999)
+
+    # Create the fitted waveform
+    y_fit = flexible_waveform(x, *params) 
+
+    #compare
+    y_diff = y - y_fit
+    #residual sum of squares
+    ss_res = np.sum((y_diff) ** 2)
+    #total sum of squares
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    # r-squared
+    r2 = 1 - (ss_res / ss_tot)
+
+    return y_fit, params, r2
+    
+
 
 def spline_fit(mag, magerr, time, do_it_anyway = 0):
     def sl(x, A, B): # this is your 'straight line' y=f(x)
@@ -80,12 +118,11 @@ def spline_fit(mag, magerr, time, do_it_anyway = 0):
     if abs(max(IQRs)-min(IQRs)) > 0.1 * RIQR:
         trans_flag = 1 
 
-    popt, pcov = curve_fit(sl, rx, rq50) # your data x, y to fit
-    grad = popt[0]
-    intercept = popt[1]
-    #generate fit
+    params, pcov = curve_fit(sl, rx, rq50) # your data x, y to fit
+    grad = params[0]
+    intercept = params[1]
 
-    y_fit = sl(x, popt[0], popt[1])
+    y_fit = sl(x, grad, intercept)
     #compare
     y_diff = y - y_fit
     #residual sum of squares
@@ -94,7 +131,7 @@ def spline_fit(mag, magerr, time, do_it_anyway = 0):
     ss_tot = np.sum((y - np.mean(y)) ** 2)
     # r-squared
     r2 = 1 - (ss_res / ss_tot)
-        
+    return y_fit, params, r2
  
 
 
@@ -103,9 +140,9 @@ def sine_fit(mag, time, period, name):
             return (A * np.sin((2.*np.pi*x)+C))+B
         y = np.array(mag)        # to fix order when called, (better to always to mag, time) CONSISTENCY!!!!!!!!!)
         x = phaser(time, period)
-        popt, pcov = curve_fit(sinus, x, y, bounds=((true_amplitude*0.3, mag_avg*0.3, -2), (true_amplitude*3.0, mag_avg*3, 2)))#, method = 'lm') # your data x, y to fit
+        params, pcov = curve_fit(sinus, x, y, bounds=((true_amplitude*0.3, mag_avg*0.3, -2), (true_amplitude*3.0, mag_avg*3, 2)))#, method = 'lm') # your data x, y to fit
         
-        y_fit = sinus(x, popt[0], popt[1], popt[2])
+        y_fit = sinus(x, params[0], params[1], params[2])
         #compare
         y_diff = y - y_fit
         #residual sum of squares
@@ -115,7 +152,7 @@ def sine_fit(mag, time, period, name):
         # r-squared
         r2 = 1 - (ss_res / ss_tot)        #coefficient of determination
        
-        return y_diff+np.median(y), x
+        return y_fit, params, r2
 
 
 

@@ -5,13 +5,13 @@ from scipy.signal import savgol_filter
 import warnings
 from scipy.optimize import curve_fit
 from periodograms.CE import *
-from periodograms.GP2 import *
+from periodograms.GP3 import *
 from periodograms.LS2 import *
 from periodograms.PDM import *
 from periodograms.PyDM import *
-#from Period import *
+from Period import *
 from synthetic_lc_generator import *
-
+import emcee
 
 
 def phaser(time, period):
@@ -42,25 +42,82 @@ def erf(x):
 # Suppress RuntimeWarning
 #warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-def fourier_fit(x, y, yerr, num_harmonics = 3, initial_guess = [0.0, 1.0, 0.0]):
+def fourier_fit(x, y, yerr, num_harmonics = 3, initial_guess = [0.0, 1.0, 0.0], method = 'scipy'):
 
-    def flexible_waveform(x, *params):
-        result = 0.0
-        offset = params[0]
-        params = params[1:]
-        num_harmonics = len(params) // 3
-        for i in range(num_harmonics):
-            amplitude, frequency, phase = params[i * 3 + 0], params[i * 3 + 1], params[i * 3 + 2]
-            result += amplitude * np.sin(2 * np.pi * frequency * x + phase)
-        result = result + offset
-        return result
+    def mcmc_fit(x, y, yerr, params0, burnin_steps = 1000, production_steps = 5000, nwalkers = 32):
+        # Define the log likelihood function
+        def log_likelihood(params, x, y, yerr):
+            offset = params[0]
+            params = params[1:]
+            num_harmonics = len(params) // 3
+            model = 0.0
+
+            for i in range(num_harmonics):
+                amplitude, frequency, phase = params[i * 3 + 0], params[i * 3 + 1], params[i * 3 + 2]
+                model += amplitude * np.sin(2 * np.pi * frequency * x + phase)
+
+            model += offset
+            chi_squared = np.sum(((y - model) / yerr) ** 2)
+            return -0.5 * chi_squared
+
+        # Define the log prior function
+        def log_prior(params):
+            # Add prior constraints here if needed
+            return 0.0
+
+        # Define the log posterior function as the sum of log likelihood and log prior
+        def log_posterior(params, x, y, yerr):
+            ln_prior = log_prior(params)
+            if not np.isfinite(ln_prior):
+                return -np.inf
+            ln_likelihood = log_likelihood(params, x, y, yerr)
+            return ln_prior + ln_likelihood
+
+        ndim = len(params0)  # Dimensionality of parameter space
+        pos = [initial_guess + 1e-4 * np.random.randn(ndim) for _ in range(nwalkers)]  # Initial positions of walkers
+
+        # Create the emcee sampler
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior, args=(x, y, yerr))
+
+        pos, _, _ = sampler.run_mcmc(pos, burnin_steps)
+        sampler.reset()
+        sampler.run_mcmc(pos, production_steps)
+        samples = sampler.get_chain(flat=True)
+        params = np.median(samples, axis=0)
+        y_fit = flexible_waveform(x, *best_fit_params)
+        return y_fit, params
+
+
+    def scipy_fit(x, y, yerr, params0, parameter_bounds):
+        def flexible_waveform(x, *params):
+            result = 0.0
+            offset = params[0]
+            params = params[1:]
+            num_harmonics = len(params) // 3
+            for i in range(num_harmonics):
+                amplitude, frequency, phase = params[i * 3 + 0], params[i * 3 + 1], params[i * 3 + 2]
+                result += amplitude * np.sin(2 * np.pi * frequency * x + phase)
+            result = result + offset
+            return result
+
+        params, covariance = curve_fit(flexible_waveform, x, y, p0=params0, maxfev = 9999999999, sigma=yerr, absolute_sigma=True, bounds=parameter_bounds)
+
+        # Create the fitted waveform
+        y_fit = flexible_waveform(x, *params) 
+        return y_fit, params
+
 
     # Fit the flexible waveform to the data
     params0 = [0] + initial_guess * num_harmonics
-    params, covariance = curve_fit(flexible_waveform, x, y, p0=params0, maxfev = 9999999999)
+    parameter_bounds = [0] + [0,0.9,0] * num_harmonics ,[20] + [np.ptp(y)*1.1,1.1,2] * num_harmonics
 
-    # Create the fitted waveform
-    y_fit = flexible_waveform(x, *params) 
+    if method == 'mcmc':
+        y_fit, params = mcmc_fit(x, y, yerr, params0, burnin_steps = 1000, production_steps = 5000, nwalkers = 32)
+    elif method == 'both':
+        y_fit, params = scipy_fit(x, y, yerr, params0, parameter_bounds)
+        y_fit, params = mcmc_fit(x, y, yerr, params, burnin_steps = 1000, production_steps = 5000, nwalkers = 32)
+    else:
+        y_fit, params = scipy_fit(x, y, yerr, params0, parameter_bounds)
 
     #compare
     y_diff = y - y_fit
@@ -70,69 +127,87 @@ def fourier_fit(x, y, yerr, num_harmonics = 3, initial_guess = [0.0, 1.0, 0.0]):
     ss_tot = np.sum((y - np.mean(y)) ** 2)
     # r-squared
     r2 = 1 - (ss_res / ss_tot)
-
-    return y_fit, params, r2
+    
+    return y_fit, [params[0],np.split(params[1:],num_harmonics)], r2
     
 
+def spline_fit(magnitude, time, magnitude_errors):
+    """
+    Perform spline fitting on time series data.
 
-def spline_fit(mag, magerr, time, do_it_anyway = 0):
-    def sl(x, A, B): # this is your 'straight line' y=f(x)
-        return A*x + B
-            
-    y = np.array(mag)        # to fix order when called, (better to always to mag, time) CONSISTENCY!!!!!!!!!)
-    yerr = np.array(magerr)
+    Parameters:
+    - magnitude (array-like): Magnitude values.
+    - time (array-like): Time values.
+    - magnitude_errors (array-like): Magnitude errors.
+
+    Returns:
+    - y_fit (array): Fitted values.
+    - params (array): Fitting parameters.
+    - r2 (float): R-squared value.
+    """
+    def straight_line(x, A, B):
+        return A * x + B
+
+    y = np.array(magnitude)
+    yerr = np.array(magnitude_errors)
     x = np.array(time)
 
-    res = 10
-    rq50 = np.empty(res)
-    rq25 = np.empty(res)
-    rq75 = np.empty(res)
-    Q75, Q25 = np.percentile(y, [75, 25])
-    rx = np.linspace(min(x), max(x), res)
-    rdelta = (max(x) - min(x))/(2*res)
-
-    ##bin need to have X points
-    for i in range(res):
-        check = []
-        rdelta_temp = rdelta                        
-        while len(check) < 1:
-            check = np.where((x < rx[i]+rdelta_temp) & (x > rx[i]-rdelta_temp))[0]
-            rdelta_temp = rdelta_temp + 0.2*rdelta
-        rq50[i] = np.median(y[check])
-        try:
-            rq75[i], rq25[i] = np.percentile(y[check], [75, 25])
-        except:
-            rq75[i], rq25[i] = rq75[i-1], rq25[i-1]
+    rx, rq50 = bin_lc(time, mag)
 
 
     RQ75, RQ25 = np.percentile(rq50, [75, 25])
     RIQR = abs(RQ75 - RQ25)
 
-    
-    #if the range of IQR of binned data changes alot when a single bin is removed, its probably transient
     IQRs = []
-    for i in range(1,res):
-        tq75, tq25 = np.percentile(np.delete(rq50,i), [75, 25])
-        IQRs.append(abs(tq75-tq25))
-    
-    if abs(max(IQRs)-min(IQRs)) > 0.1 * RIQR:
-        trans_flag = 1 
+    for i in range(1, res):
+        tq75, tq25 = np.percentile(np.delete(rq50, i), [75, 25])
+        IQRs.append(abs(tq75 - tq25))
 
-    params, pcov = curve_fit(sl, rx, rq50) # your data x, y to fit
-    grad = params[0]
-    intercept = params[1]
 
-    y_fit = sl(x, grad, intercept)
-    #compare
-    y_diff = y - y_fit
-    #residual sum of squares
-    ss_res = np.sum((y_diff) ** 2)
-    #total sum of squares
+    params, pcov = curve_fit(straight_line, rx, rq50)
+    grad, intercept = params
+
+    y_fit = straight_line(x, grad, intercept)
+
+    ss_res = np.sum((y - y_fit) ** 2)
     ss_tot = np.sum((y - np.mean(y)) ** 2)
-    # r-squared
     r2 = 1 - (ss_res / ss_tot)
+
     return y_fit, params, r2
- 
+
+
+
+def polyn_fit(magnitude, time, magnitude_errors, terms):
+    """
+    Perform polynomial fitting on time series data.
+
+    Parameters:
+    - magnitude (array-like): Magnitude values.
+    - time (array-like): Time values.
+    - magnitude_errors (array-like): Magnitude errors.
+    - terms (int): Number of polynomial terms for fitting.
+
+    Returns:
+    - y_fit (array): Fitted values.
+    - params (array): Fitting parameters.
+    - r2 (float): R-squared value.
+    """
+    def polynomial(x, *coeffs):
+        return sum(c * x ** i for i, c in enumerate(coeffs))
+
+    y = np.array(magnitude)
+    yerr = np.array(magnitude_errors)
+    x = np.array(time)
+
+    params, pcov = curve_fit(polynomial, x, y, p0=[0] * (terms + 1), sigma=yerr, absolute_sigma=True)
+
+    y_fit = polynomial(x, *params)
+
+    ss_res = np.sum((y - y_fit) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r2 = 1 - (ss_res / ss_tot)
+
+    return y_fit, params, r2
 
 
 def sine_fit(mag, time, period, name):
@@ -154,6 +229,17 @@ def sine_fit(mag, time, period, name):
        
         return y_fit, params, r2
 
+
+def bin_lc(x, y, res = 10):
+    rq50 = np.empty(res)
+    rx = np.linspace(min(x), max(x), res)
+    rdelta = (max(x) - min(x)) / (2 * res)
+
+    # Calculate percentiles using NumPy functions
+    for i in range(res):
+        check = np.where((x < rx[i] + rdelta) & (x > rx[i] - rdelta))[0]
+        rq50[i] = np.median(y[check])
+    return rx, rq50
 
 
 #normalise list 'x' 

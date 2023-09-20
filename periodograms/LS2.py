@@ -120,6 +120,15 @@ def lombscargle(t, y, dy, frequency, normalization='standard', fit_mean=True, ce
 	return p
 
 
+	# compute the unnormalized model chi2 at each frequency
+	def compute_power(f):
+		X = design_matrix(t, f, dy=dy, bias=fit_mean, nterms=nterms)
+		XTX = np.dot(X.T, X)
+		XTy = np.dot(X.T, yw)
+		return np.dot(XTy.T, np.linalg.solve(XTX, XTy))
+
+
+	p = np.array([compute_power(f) for f in frequency])
 
 def design_matrix(t, frequency, dy=None, bias=True, nterms=1):
 	"""Compute the Lomb-Scargle design matrix at the given frequency

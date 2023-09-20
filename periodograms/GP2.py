@@ -117,12 +117,14 @@ def predict(y, yerr, x, gp, t1 = 1, t2 = 1, N = 500):
 def GP(y, yerr, x, F_start = None, F_stop = 10):
 
     def plot_psd(gp):
+        freq = np.linspace(F_start, F_stop, 10000)
+        omega = 2 * np.pi * freq
         for n, term in enumerate(gp.kernel.terms):
-            plt.loglog(freq, term.get_psd(omega), label="term {0}".format(n + 1))
-        plt.loglog(freq, gp.kernel.get_psd(omega), ":k", label="full model")
-        plt.xlim(freq.min(), freq.max())
+            plt.loglog(1/freq, term.get_psd(omega), label="term {0}".format(n + 1))
+        plt.loglog(1/freq, gp.kernel.get_psd(omega), ":k", label="full model")
+        #plt.xlim(freq.min(), freq.max())
         plt.legend()
-        plt.xlabel("frequency [1 / day]")
+        #plt.xlabel("frequency [1 / day]")
         plt.ylabel("power [day ppt$^2$]")
         plt.show()
 
@@ -137,8 +139,8 @@ def GP(y, yerr, x, F_start = None, F_stop = 10):
 
         plt.xlabel("x [day]")
         plt.ylabel("y [ppm]")
-        plt.xlim(0, 10)
-        plt.ylim(-2.5, 2.5)
+        #plt.xlim(0, 10)
+        #plt.ylim(-2.5, 2.5)
         plt.legend()
         plt.show()
 
@@ -149,17 +151,12 @@ def GP(y, yerr, x, F_start = None, F_stop = 10):
     gp, params = gp_scipy_compute(x, y, yerr, gp)
 
     true_x = np.linspace(min(x),max(x),1000)
-    freq = np.linspace(F_start, F_stop, 10000)
-    omega = 2 * np.pi * freq
-
-
 
     plot_psd(gp)
     plot_prediction(gp)
 
-
     gpmean = params[0]
-    theta = np.exp(params[1:])#params[1:]#np.log(params[1:])#
+    theta = params[1:]#np.log(params[1:])#np.exp(params[1:])#
     gprho1=theta[0]
     gpS01=theta[1]
     gpQ1=theta[2]

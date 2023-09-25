@@ -210,13 +210,12 @@ def polyn_fit(magnitude, time, magnitude_errors, terms):
     return y_fit, params, r2
 
 
-def sine_fit(mag, time, period, name):
+def sine_fit(mag, time, period):
         def sinus(x, A, B, C): # this is your 'straight line' y=f(x)
             return (A * np.sin((2.*np.pi*x)+C))+B
         y = np.array(mag)        # to fix order when called, (better to always to mag, time) CONSISTENCY!!!!!!!!!)
         x = phaser(time, period)
-        params, pcov = curve_fit(sinus, x, y, bounds=((true_amplitude*0.3, mag_avg*0.3, -2), (true_amplitude*3.0, mag_avg*3, 2)))#, method = 'lm') # your data x, y to fit
-        
+        params, pcov = curve_fit(sinus, x, y)        
         y_fit = sinus(x, params[0], params[1], params[2])
         #compare
         y_diff = y - y_fit

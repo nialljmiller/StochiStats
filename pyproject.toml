@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stochistats"
+version = "0.2.0"
+description = "Time series analysis tools for stochastically sampled periodic signals"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Niall Miller"},
+]
+keywords = [
+    "time-series", "astronomy", "lightcurve", "variability",
+    "periodicity", "stochastic", "VVV", "PRIMVS",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+    "numpy>=1.20",
+    "scipy>=1.7",
+]
+
+[project.optional-dependencies]
+full = [
+    "scikit-learn",
+    "emcee",
+    "celerite2",
+]
+dev = [
+    "pytest>=7",
+    "pytest-cov",
+]
+
+[tool.setuptools.packages.find]
+include = ["stochistats*"]
+
+# Keep the old top-level StochiStats.py importable
+[tool.setuptools]
+py-modules = ["StochiStats"]

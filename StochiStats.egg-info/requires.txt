@@ -1,5 +1,0 @@
-numpy
-scipy
-scikit-learn
-emcee
-celerite2

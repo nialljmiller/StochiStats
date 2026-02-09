@@ -1,6 +1,0 @@
-setup.py
-StochiStats.egg-info/PKG-INFO
-StochiStats.egg-info/SOURCES.txt
-StochiStats.egg-info/dependency_links.txt
-StochiStats.egg-info/requires.txt
-StochiStats.egg-info/top_level.txt

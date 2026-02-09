@@ -50,6 +50,12 @@ def extract_peaks(
     freqs = np.asarray(freqs, dtype=float)
     power = np.asarray(power, dtype=float)
 
+    if len(freqs) != len(power):
+        raise ValueError(
+            f"freqs and power must have the same length, "
+            f"got {len(freqs)} and {len(power)}"
+        )
+
     if len(freqs) < 3:
         return []
 

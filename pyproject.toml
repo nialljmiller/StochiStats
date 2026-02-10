@@ -45,12 +45,12 @@ dev = [
     "astropy",
 ]
 
-[tool.setuptools.packages.find]
-include = ["stochistats*"]
-
 # Keep the old top-level StochiStats.py importable
 [tool.setuptools]
 py-modules = ["StochiStats"]
+
+[tool.setuptools.packages.find]
+include = ["stochistats*"]
 
 [tool.pytest.ini_options]
 testpaths = ["stochistats/tests"]

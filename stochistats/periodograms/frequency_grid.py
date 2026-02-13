@@ -75,9 +75,9 @@ def make_primvs_grids(
     """
     grids = []
     # Test 1: P in [1, 500] => F in [1/500, 1]
-    grids.append(make_frequency_grid(time_baseline, F_start=1.0/500, F_stop=1.0, n_freqs=n_freqs))
+    grids.append(make_frequency_grid(time_baseline, F_start=1.0/500, F_stop=1.0, n_freqs=n_freqs*0.5))
     # Test 2: P in [0.01, 1] => F in [1, 100]
-    grids.append(make_frequency_grid(time_baseline, F_start=1.0, F_stop=100.0, n_freqs=n_freqs))
+    grids.append(make_frequency_grid(time_baseline, F_start=0.9, F_stop=100.0, n_freqs=n_freqs*2))
     # Test 3: P in [500, T_lc/2] => F in [2/T_lc, 1/500]
     F_start_3 = 2.0 / time_baseline
     F_stop_3 = 1.0 / 500
